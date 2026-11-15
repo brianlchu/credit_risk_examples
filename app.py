@@ -8,6 +8,10 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
+import model_view
+from data import make_portfolio
+from model import MODEL_NAMES, ModelResult, out_of_fold_pd, train_and_evaluate
+
 
 st.set_page_config(
     page_title="Northstar | Credit portfolio",
@@ -30,60 +34,18 @@ COLORS = {
 
 
 @st.cache_data
-def make_portfolio() -> pd.DataFrame:
-    rng = np.random.default_rng(42)
-    row_count = 1800
-    booked = pd.to_datetime(
-        rng.choice(pd.date_range("2023-01-01", "2025-12-01", freq="MS"), row_count)
-    )
-    segments = rng.choice(
-        ["Prime", "Near-prime", "Subprime"], row_count, p=[0.43, 0.39, 0.18]
-    )
-    segment_pd = pd.Series(segments).map(
-        {"Prime": 0.022, "Near-prime": 0.067, "Subprime": 0.158}
-    ).to_numpy()
-    income = np.clip(rng.lognormal(np.log(72000), 0.48, row_count), 22000, 240000)
-    dti = np.clip(rng.beta(2.4, 5.2, row_count) * 0.88, 0.04, 0.78)
-    utilization = np.clip(rng.beta(2.1, 3.7, row_count), 0.02, 0.99)
-    credit_score = np.clip(
-        rng.normal(706, 52, row_count)
-        - np.where(segments == "Subprime", 56, 0)
-        - np.where(segments == "Prime", -25, 0),
-        510,
-        850,
-    ).astype(int)
-    balance = np.clip(rng.lognormal(np.log(13800), 0.62, row_count), 1500, 65000)
-    apr = np.clip(
-        5.8 + (850 - credit_score) * 0.075 + rng.normal(0, 1.15, row_count), 4.5, 29.9
-    )
-    risk_logit = (
-        np.log(segment_pd / (1 - segment_pd))
-        + 2.0 * (dti - 0.32)
-        + 1.05 * (utilization - 0.42)
-        + 0.16 * (700 - credit_score) / 50
-    )
-    pd_estimate = 1 / (1 + np.exp(-risk_logit))
-    defaulted = rng.binomial(1, pd_estimate)
-    return pd.DataFrame(
-        {
-            "Loan ID": [f"LN-{number:05d}" for number in range(1, row_count + 1)],
-            "Booked": booked,
-            "Segment": segments,
-            "State": rng.choice(
-                ["CA", "TX", "FL", "NY", "IL", "GA", "AZ", "NC"],
-                row_count,
-                p=[0.18, 0.16, 0.13, 0.12, 0.11, 0.10, 0.10, 0.10],
-            ),
-            "Credit score": credit_score,
-            "Annual income": income.round(0).astype(int),
-            "Debt-to-income": dti,
-            "Utilization": utilization,
-            "Balance": balance.round(2),
-            "APR": apr,
-            "Base PD": pd_estimate,
-            "Defaulted": defaulted,
-        }
-    )
+def load_portfolio() -> pd.DataFrame:
+    return make_portfolio()
+
+
+@st.cache_resource
+def load_models() -> dict[str, ModelResult]:
+    return train_and_evaluate(load_portfolio())
+
+
+@st.cache_data
+def score_portfolio(model_name: str) -> np.ndarray:
+    return out_of_fold_pd(load_portfolio(), model_name)
 
 
 def money(value: float, compact: bool = False) -> str:
@@ -144,10 +106,23 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-portfolio = make_portfolio()
+portfolio = load_portfolio()
 
 with st.sidebar:
     st.markdown('<div class="brand"><div class="brand-mark">N</div>northstar <span style="font-weight:500;color:#718078">/ risk</span></div>', unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+    view = st.radio("View", ["Portfolio", "Model lab"], horizontal=True)
+    model_name = st.selectbox("PD model", MODEL_NAMES, help="Scores the portfolio and drives the Model lab.")
+
+if view == "Model lab":
+    with st.spinner("Training models…"):
+        model_results = load_models()
+    model_view.render(portfolio, model_results, model_name, chart_layout, COLORS)
+    st.stop()
+
+portfolio = portfolio.assign(**{"Base PD": score_portfolio(model_name)})
+
+with st.sidebar:
     st.markdown("<br><div class='eyebrow'>Portfolio lens</div>", unsafe_allow_html=True)
     st.caption("Adjust the view. Metrics and charts recalculate instantly.")
     selected_segments = st.multiselect(
@@ -164,7 +139,7 @@ with st.sidebar:
     pd_shift = st.slider("Relative PD increase", 0, 100, 25, step=5, format="%d%%")
     lgd = st.slider("Loss given default", 20, 90, 60, step=5, format="%d%%") / 100
     st.markdown("<br>", unsafe_allow_html=True)
-    st.caption("Illustrative synthetic data · refreshed on app restart")
+    st.caption("Illustrative synthetic data · PDs are out-of-fold model scores")
 
 if len(date_range) == 2:
     start_date, end_date = pd.Timestamp(date_range[0]), pd.Timestamp(date_range[1])
@@ -245,11 +220,11 @@ with vintage_col:
     st.markdown("<div class='section-heading'>Vintage performance</div><div class='section-caption'>Observed default rate by booking quarter</div>", unsafe_allow_html=True)
     if loan_count:
         vintage = filtered.assign(Quarter=filtered["Booked"].dt.to_period("Q").astype(str)).groupby("Quarter", as_index=False).agg(
-            **{"Observed default": ("Defaulted", "mean"), "Portfolio PD": ("Base PD", "mean")}
+            **{"Observed default": ("Defaulted", "mean"), "Model PD": ("Base PD", "mean")}
         )
         vintage_long = vintage.melt("Quarter", var_name="Measure", value_name="Rate")
         fig = px.line(vintage_long, x="Quarter", y="Rate", color="Measure", markers=True,
-                      color_discrete_map={"Observed default": COLORS["green"], "Portfolio PD": COLORS["orange"]})
+                      color_discrete_map={"Observed default": COLORS["green"], "Model PD": COLORS["orange"]})
         fig.update_yaxes(tickformat=".0%")
         fig.update_traces(line_width=2.5, marker_size=6)
         st.plotly_chart(chart_layout(fig, 245), width="stretch", config={"displayModeBar": False})
@@ -283,7 +258,7 @@ if loan_count:
     display["Scenario PD"] = display["Scenario PD"].map(lambda value: f"{value:.2%}")
     display["Defaulted"] = display["Defaulted"].map({1: "Yes", 0: "No"})
     st.dataframe(
-        display[["Loan ID", "Booked", "Segment", "State", "Credit score", "Annual income", "Debt-to-income", "Utilization", "Balance", "APR", "Base PD", "Scenario PD", "Defaulted"]],
+        display[["Loan ID", "Booked", "Segment", "State", "Purpose", "Credit score", "Annual income", "Debt-to-income", "Utilization", "Balance", "APR", "Base PD", "Scenario PD", "Defaulted"]],
         width="stretch", hide_index=True, height=355,
     )
     st.download_button(
@@ -296,6 +271,6 @@ else:
 
 st.markdown("<br><hr>", unsafe_allow_html=True)
 st.markdown(
-    "<div class='insight'><b>Illustrative analysis only.</b> This app uses deterministic synthetic records for demonstration. PDs, defaults, and expected-loss calculations are not a validated model, credit decision, or forecast.</div>",
+    "<div class='insight'><b>Illustrative analysis only.</b> This app uses deterministic synthetic records for demonstration. PDs come from models trained on that synthetic data; they and the expected-loss calculations are not a validated model, credit decision, or forecast.</div>",
     unsafe_allow_html=True,
 )
