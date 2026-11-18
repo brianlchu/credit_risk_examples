@@ -1,0 +1,9 @@
+# Sentryline
+
+Local-first supply-chain security dashboard. Open [index.html](index.html) directly in a modern browser. No installation or server is required.
+
+Import an npm `package-lock.json` (lockfile v2/v3), a CycloneDX JSON SBOM, or an SPDX JSON SBOM by choosing a file or dragging it onto the page. Supported SBOM components are npm and PyPI packages with exact versions and package URLs. Click **Run OSV scan** to query the [OSV API](https://osv.dev/) for known vulnerabilities. Each scan sends package names, ecosystems, and versions to OSV; manifest contents otherwise remain in the browser. Results can be filtered, opened for advisory detail, or exported as a JSON scan report. The inventory can be exported as a CycloneDX 1.5 JSON SBOM even before a scan.
+
+The built-in sample is an unscanned inventory, not a precomputed security assessment. Severity is shown only when OSV supplies a recognized label or numeric score; CVSS vector strings without numeric scores appear as **Unknown**. Fixed versions are OSV advisory range events, not a guarantee of compatibility. A failed or partial OSV request is never displayed as a clean scan. Components without npm/PyPI package URLs are not included in the scan or generated SBOM. Lockfile direct/transitive classification is inferred from root declarations; imported SBOMs may not provide enough relationship data to classify dependencies.
+
+Open [test.html](test.html) in a browser to run parser, SBOM, and mocked OSV tests. This project has no build step or npm dependencies. Fonts and icons are loaded from third-party CDNs when available; the core scanner works without them.

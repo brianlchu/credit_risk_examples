@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f7f4">
+  <title>Sentryline | Supply-chain security</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+  <script defer src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js"></script>
+  <script defer src="./scanner.js"></script>
+  <script defer src="./app.js"></script>
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <a class="brand" href="./index.html" aria-label="Sentryline home"><span class="brand-mark">S<span></span></span><span>SENTRYLINE<small>SUPPLY CHAIN SECURITY</small></span></a>
+      <div class="sidebar-label">WORKSPACE</div>
+      <nav class="side-nav" aria-label="Workspace">
+        <button class="side-link active" data-view="overview"><i data-lucide="layout-dashboard"></i>Overview</button>
+        <button class="side-link" data-view="findings"><i data-lucide="shield-alert"></i>Findings <span id="nav-finding-count" class="nav-count">0</span></button>
+        <button class="side-link" data-view="inventory"><i data-lucide="boxes"></i>Inventory</button>
+        <button class="side-link" data-view="sbom"><i data-lucide="file-code-2"></i>SBOM</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="sidebar-label">DATA SOURCE</div>
+        <div class="source-line"><span class="source-dot"></span>OSV vulnerability database</div>
+        <div class="source-note">Package metadata stays in this browser. Scans send package names and versions to OSV.</div>
+        <a href="https://osv.dev/" target="_blank" rel="noopener noreferrer" class="sidebar-out">About OSV <i data-lucide="arrow-up-right"></i></a>
+      </div>
+    </aside>
+
+    <div class="main-column">
+      <header class="topbar">
+        <div class="breadcrumb">WORKSPACE <span>/</span> <strong id="breadcrumb-view">OVERVIEW</strong></div>
+        <div class="top-actions"><span id="top-status" class="top-status"><span class="status-pip"></span> NOT SCANNED</span><button id="open-import" class="button button-quiet"><i data-lucide="upload"></i> Import file</button></div>
+      </header>
+
+      <main class="content">
+        <div class="page-heading">
+          <div><p class="eyebrow">DEPENDENCY INTELLIGENCE <span class="eyebrow-line"></span> 01 / 04</p><h1 id="page-title">Supply chain overview</h1><p id="page-subtitle" class="page-subtitle">Track the packages in your build and the advisories that matter.</p></div>
+          <button id="scan-button" class="button button-primary"><i data-lucide="scan-search"></i><span>Run OSV scan</span><i data-lucide="arrow-up-right" class="button-arrow"></i></button>
+        </div>
+
+        <div id="notice" class="notice" role="status" aria-live="polite"></div>
+
+        <section id="overview-view" class="view active" aria-label="Overview">
+          <div class="project-strip"><div class="project-identity"><div class="project-icon"><i data-lucide="package-check"></i></div><div><div class="label-mini">ACTIVE PROJECT</div><h2 id="project-name">Loading...</h2><p id="project-meta"></p></div></div><span id="project-tag" class="sample-tag">SAMPLE INVENTORY</span></div>
+          <div class="metrics" id="metrics"></div>
+          <div class="section-grid">
+            <section class="panel findings-panel"><div class="section-header"><div><p class="label-mini">RISK PRIORITY</p><h2>Actionable findings</h2></div><button class="text-action" data-view="findings">View all <i data-lucide="arrow-up-right"></i></button></div><div id="overview-findings"></div></section>
+            <section class="panel composition-panel"><div class="section-header"><div><p class="label-mini">COMPOSITION</p><h2>Dependency makeup</h2></div><i data-lucide="layers-3" class="section-symbol"></i></div><div id="composition"></div></section>
+          </div>
+          <section class="import-banner"><div class="banner-symbol"><i data-lucide="file-up"></i></div><div><p class="label-mini">BRING YOUR OWN PROJECT</p><h2>Analyze a dependency manifest</h2><p>Import an npm lockfile, CycloneDX JSON, or SPDX JSON.</p></div><button id="banner-import" class="button button-outline">Choose file <i data-lucide="arrow-up-right"></i></button></section>
+        </section>
+
+        <section id="findings-view" class="view" aria-label="Findings">
+          <div class="view-toolbar"><div class="toolbar-intro"><p class="label-mini">ADVISORY REGISTER</p><h2 id="findings-heading">Findings</h2></div><div class="filters"><label class="search-field"><i data-lucide="search"></i><input id="finding-search" type="search" placeholder="Search advisories or packages" aria-label="Search findings"></label><select id="severity-filter" aria-label="Filter by severity"><option value="ALL">All severities</option><option value="CRITICAL">Critical</option><option value="HIGH">High</option><option value="MEDIUM">Medium</option><option value="LOW">Low</option><option value="UNKNOWN">Unknown</option></select></div></div><div id="findings-table" class="table-wrap"></div>
+        </section>
+
+        <section id="inventory-view" class="view" aria-label="Inventory">
+          <div class="view-toolbar"><div class="toolbar-intro"><p class="label-mini">SOFTWARE COMPONENTS</p><h2 id="inventory-heading">Package inventory</h2></div><label class="search-field"><i data-lucide="search"></i><input id="inventory-search" type="search" placeholder="Search packages" aria-label="Search packages"></label></div><div id="inventory-table" class="table-wrap"></div>
+        </section>
+
+        <section id="sbom-view" class="view" aria-label="SBOM">
+          <div class="view-toolbar"><div class="toolbar-intro"><p class="label-mini">SOFTWARE BILL OF MATERIALS</p><h2>CycloneDX export</h2></div><button id="download-bom" class="button button-primary"><i data-lucide="download"></i> Download SBOM</button></div>
+          <div class="sbom-info"><div class="sbom-header"><div class="sbom-glyph"><i data-lucide="file-json-2"></i></div><div><div class="label-mini">EXPORT FORMAT</div><h3>CycloneDX 1.5 / JSON</h3></div><span class="format-tag">READY TO EXPORT</span></div><div class="sbom-facts"><div><span>PROJECT</span><strong id="sbom-project"></strong></div><div><span>COMPONENTS</span><strong id="sbom-count"></strong></div><div><span>ECOSYSTEMS</span><strong id="sbom-ecosystems"></strong></div></div><p>Export includes the imported package names, versions, package URLs and available license labels. Advisory results are available separately in the scan report.</p><button id="download-report" class="button button-outline"><i data-lucide="download"></i> Download scan report</button></div>
+        </section>
+        <footer class="footer"><span>SENTRYLINE <span class="footer-divider">/</span> LOCAL WORKSPACE</span><span>Vulnerability data provided by <a href="https://osv.dev/" target="_blank" rel="noopener noreferrer">OSV</a></span></footer>
+      </main>
+    </div>
+  </div>
+
+  <input id="file-input" type="file" accept=".json,.lock,application/json" hidden>
+  <div id="drop-overlay" class="drop-overlay" aria-hidden="true"><div><i data-lucide="file-down"></i><h2>Drop your manifest</h2><p>npm lockfile, CycloneDX, or SPDX JSON</p></div></div>
+  <div id="detail-backdrop" class="detail-backdrop" hidden></div>
+  <aside id="detail-panel" class="detail-panel" role="dialog" aria-modal="true" aria-label="Advisory details" hidden><div id="detail-content"></div></aside>
+</body>
+</html>
